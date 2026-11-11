@@ -21,7 +21,7 @@ No incluye todavia: venta de pasajes, pagos, seguimiento GPS en el servidor, pas
 ## Puesta en marcha
 
 1. Crear un proyecto en Supabase.
-2. Aplicar `0001_core.sql`, `0002_save_functions.sql` y `0003_route_catalog.sql` de `supabase/migrations` (SQL Editor o `supabase db push`).
+2. Aplicar `0001_core.sql`, `0002_save_functions.sql`, `0003_route_catalog.sql`, `0004_route_ownership.sql` y `0005_service_departures.sql` , `0006_places_and_paths.sql`, `0007_day_types_and_start_service.sql` y `0008_route_times.sql` de `supabase/migrations` (SQL Editor o `supabase db push`).
 3. Desplegar las funciones: `supabase functions deploy create-driver` y `supabase functions deploy create-company-admin`.
 4. Copiar `web/.env.example` a `web/.env.local` y completar URL y anon key.
 5. Crear el administrador general (una sola vez): crear el usuario en Authentication > Users y en el SQL Editor:
@@ -34,8 +34,8 @@ No incluye todavia: venta de pasajes, pagos, seguimiento GPS en el servidor, pas
 
 ## Quien hace que
 
-- Administrador general (vos): crea empresas y su administrador, y carga el catalogo de recorridos (paradas con coordenadas). No ve datos operativos de las empresas.
-- Administrador de empresa: crea flota, disposiciones, conductores y servicios. Cada servicio usa un recorrido del catalogo y define sus propios tiempos por parada.
+- Administrador general (vos): crea empresas y su administrador, carga las localidades (origen/destino que elige el pasajero) y los recorridos (paradas con localidad y coordenadas, trazado por calles y puntos de paso), cada uno asignado en exclusiva a una empresa. No ve datos operativos de las empresas.
+- Administrador de empresa: crea flota, disposiciones, conductores y servicios. Cada servicio (por ejemplo "214") agrupa varias salidas de ida y vuelta, cada una con su horario y sus días; los tiempos por parada se definen por sentido.
 
 ## Pruebas
 
