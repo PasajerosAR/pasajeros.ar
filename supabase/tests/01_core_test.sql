@@ -100,13 +100,16 @@ select t.logout();
 -- el catalogo lo carga el administrador general
 select t.login('f0000000-0000-0000-0000-000000000001');
 insert into public.routes (id, name) values ('33333333-0000-0000-0000-000000000001', 'Parana - Santa Fe');
+update public.routes set company_id = 'aaaaaaaa-0000-0000-0000-000000000001'
+ where id = '33333333-0000-0000-0000-000000000001';
 insert into public.route_stops (id, route_id, position, name) values
   ('44444444-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000001', 1, 'Parana'),
   ('44444444-0000-0000-0000-000000000002', '33333333-0000-0000-0000-000000000001', 2, 'Colonia Avellaneda'),
   ('44444444-0000-0000-0000-000000000003', '33333333-0000-0000-0000-000000000001', 3, 'Santa Fe');
 select t.logout();
 select t.login('a1000000-0000-0000-0000-000000000001');
-select public.save_service(null, '214', '33333333-0000-0000-0000-000000000001', '18:00', array[1,2,3,4,5,6,7], true,
+select public.save_service(null, '214', true,
+  '[{"route_id":"33333333-0000-0000-0000-000000000001","time":"18:00","day_types":["weekday","saturday","sunday","holiday"]}]'::jsonb,
   '[{"route_stop_id":"44444444-0000-0000-0000-000000000001","minutes_from_start":0},
     {"route_stop_id":"44444444-0000-0000-0000-000000000002","minutes_from_start":20,"dwell_minutes":2},
     {"route_stop_id":"44444444-0000-0000-0000-000000000003","minutes_from_start":100}]'::jsonb);
@@ -184,12 +187,15 @@ select t.logout();
 
 -- ---------------------------------------------------------------- 5. inicio manual por admin con motivo
 select t.login('a1000000-0000-0000-0000-000000000001');
-select public.save_service(null, '216', '33333333-0000-0000-0000-000000000001', '19:00', array[1,2,3,4,5,6,7], true,
+select public.save_service(null, '216', true,
+  '[{"route_id":"33333333-0000-0000-0000-000000000001","time":"19:00","day_types":["weekday","saturday","sunday","holiday"]}]'::jsonb,
   '[{"route_stop_id":"44444444-0000-0000-0000-000000000001","minutes_from_start":0},
     {"route_stop_id":"44444444-0000-0000-0000-000000000002","minutes_from_start":20},
     {"route_stop_id":"44444444-0000-0000-0000-000000000003","minutes_from_start":100}]'::jsonb);
 select t.expect_eq(public.generate_trips(date '2026-11-14'), 1, 'genera el servicio nuevo');
-update public.trips set vehicle_id = '22222222-0000-0000-0000-000000000001' where service_id = (select id from public.services where code = '216');
+update public.trips set vehicle_id = '22222222-0000-0000-0000-000000000001',
+                        driver_id = 'a2000000-0000-0000-0000-000000000001'
+ where service_id = (select id from public.services where code = '216');
 select t.expect_fail($q$select public.admin_start_trip((select id from public.trips where service_id = (select id from public.services where code = '216')), '')$q$, 'REASON_REQUIRED');
 select public.admin_start_trip((select id from public.trips where service_id = (select id from public.services where code = '216')), 'Chofer sin senal');
 select t.expect_eq((select started_manually from public.trips where service_id = (select id from public.services where code = '216')), true, 'queda marcado como manual');

@@ -16,7 +16,8 @@ grant all on hh to authenticated;
 create temp table s600 as select public.save_service(null, '600', true,
   format('[{"route_id":"33333333-0000-0000-0000-000000000001","time":"%s","day_types":["weekday","holiday"]},
            {"route_id":"33333333-0000-0000-0000-000000000001","time":"%s","day_types":["holiday"]},
-           {"route_id":"33333333-0000-0000-0000-000000000001","time":"%s","day_types":["saturday"]}]',
+           {"route_id":"33333333-0000-0000-0000-000000000001","time":"%s","day_types":["saturday"]},
+           {"route_id":"33333333-0000-0000-0000-000000000001","time":"00:00","day_types":["holiday"]}]',
          (select near from hh), (select far from hh), (select sat from hh))::jsonb,
   t.stops_json(array['33333333-0000-0000-0000-000000000001'::uuid])) as id;
 grant all on s600 to authenticated;
@@ -26,9 +27,9 @@ create function t.dep(h text) returns uuid language sql stable as
 grant execute on function t.dep(text) to authenticated;
 select t.login('a1000000-0000-0000-0000-000000000001');
 
--- feriado: solo salen las 2 salidas marcadas como feriado; el tipo de dia por defecto sale de la fecha
-select t.expect_eq(public.generate_trips(date '2027-03-01', 'holiday'), 2, 'feriado: 2 salidas del servicio 600');
-select t.expect_eq((select count(*) from public.trips where service_date = date '2027-03-01' and day_type = 'holiday'), 2::bigint, 'viajes con tipo feriado');
+-- feriado: solo salen las 3 salidas marcadas como feriado; el tipo de dia por defecto sale de la fecha
+select t.expect_eq(public.generate_trips(date '2027-03-01', 'holiday'), 3, 'feriado: 3 salidas del servicio 600');
+select t.expect_eq((select count(*) from public.trips where service_date = date '2027-03-01' and day_type = 'holiday'), 3::bigint, 'viajes con tipo feriado');
 select t.expect_eq(public.day_type_of(date '2026-11-14'), 'saturday', 'sabado');
 select t.expect_eq(public.day_type_of(date '2026-11-15'), 'sunday', 'domingo');
 select t.expect_eq(public.day_type_of(date '2026-11-16'), 'weekday', 'lunes habil');
@@ -64,6 +65,22 @@ select public.start_service((select id from s600), t.dep((select far from hh)), 
 select t.expect_eq((select started_manually from public.trips where departure_id = t.dep((select far from hh)) and driver_id = auth.uid() order by created_at desc limit 1), true, 'fuera de horario: forzado');
 select t.expect_eq((select start_reason from public.trips where departure_id = t.dep((select far from hh)) and driver_id = auth.uid() order by created_at desc limit 1), 'Salida adelantada por demanda', 'motivo guardado');
 select public.end_trip((select id from public.trips where driver_id = auth.uid() and status = 'in_progress'), true);
+
+-- Una salida a medianoche usa la fecha elegida en el calendario, no la fecha actual.
+create temp table selected_date as
+select (now() at time zone 'America/Argentina/Buenos_Aires')::date + 1 as service_date;
+grant all on selected_date to authenticated;
+select public.start_service((select id from s600), t.dep('00:00'), 'holiday',
+  '22222222-0000-0000-0000-0000000000f1', 'Prueba de fecha seleccionada', (select service_date from selected_date));
+select t.expect_eq(
+  (select service_date::text from public.trips where departure_id = t.dep('00:00') and driver_id = auth.uid() order by created_at desc limit 1),
+  (select service_date::text from selected_date), 'guarda la fecha elegida para salida de medianoche');
+select t.expect_eq(
+  (select to_char(scheduled_departure, 'YYYY-MM-DD HH24:MI') from public.trips where departure_id = t.dep('00:00') and driver_id = auth.uid() order by created_at desc limit 1),
+  (select to_char((service_date + time '00:00') at time zone 'America/Argentina/Buenos_Aires', 'YYYY-MM-DD HH24:MI') from selected_date),
+  'programa medianoche en el dia elegido');
+select public.end_trip((select id from public.trips where driver_id = auth.uid() and status = 'in_progress'), true);
+
 -- una salida que ya se inicio hoy no se vuelve a iniciar
 select t.expect_fail(format($q$select public.start_service(%L, %L, 'holiday', '22222222-0000-0000-0000-0000000000f1')$q$, (select id from s600), t.dep((select near from hh))), 'ALREADY_STARTED');
 select t.logout();

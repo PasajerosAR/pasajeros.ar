@@ -1,3 +1,6 @@
+-- LEGACY: este archivo no incluye las migraciones 0009 en adelante.
+-- Para una instalacion nueva o actualizar una base existente, aplicar en orden
+-- los archivos de supabase/migrations, hasta 0011_service_delete_and_date.sql.
 -- Fase 1: nucleo operativo multiempresa.
 -- Aislamiento por empresa con RLS. La logica critica (viajes, jornada, contador)
 -- va en funciones del servidor, no en el cliente.
